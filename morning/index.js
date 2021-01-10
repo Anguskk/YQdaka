@@ -1,4 +1,6 @@
 const puppeteer = require("puppeteer-core");
+// const StealthPlugin = require('puppeteer-extra-plugin-stealth')
+// puppeteer.use(StealthPlugin())
 const {getCanvasData,gotoTargetPosition,saveFullBg,getElAttrs,mouseup,mousedown} = require("./mycaptcha");
 const fs = require('fs').promises;
 const child_process = require('child_process');
@@ -34,44 +36,52 @@ const Daka = async () => {
 		});
 	  
 		const page = await browser.newPage(); // 打开一个页面, page就是后序将要操作的  
-		page.setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36")
-		// 打开拦截请求
-		await page.setRequestInterception(true);
-		// 请求拦截器
-		// 这里的作用是在所有js执行前都插入我们的js代码抹掉puppeteer的特征
+		page.setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36")
+		//删除 webdriver属性
+		// await page.evaluateOnNewDocument(() => {
+		// 	const newProto = navigator.__proto__;
+		// 	delete newProto.webdriver;
+		// 	navigator.__proto__ = newProto;
+		//   });
 		
-		page.on("request", async (req, res2) => {
-			// 非js脚本返回
-			// 如果html中有inline的script检测html中也要改，一般没有
-			if (req.resourceType() !== "script") {
-				req.continue()
-				return
-			}
-			// 获取url
+		// 打开拦截请求
+		// await page.setRequestInterception(true);
+		// // 请求拦截器
+		// // 这里的作用是在所有js执行前都插入我们的js代码抹掉puppeteer的特征
+		
+		// page.on("request", async(req, res2) => {
+		// 	// 非js脚本返回
+		// 	// 如果html中有inline的script检测html中也要改，一般没有
+		// 	if (req.resourceType() !== "script") {
+		// 		req.continue()
+		// 		return
+		// 	}
+		// 	// 获取url
 			
-				const url = req.url()
-				await new Promise((resolve, reject) => {
-				// 使用request/axios等请求库获取js文件
-				request.get(url, (err, _res) => {
-				   // 删掉navigator.webdriver
-				   // 这里不排除有其它特征检测，每个网站需要定制化修改
-					if (err){					
-						resolve()
-					}
-					if (_res){
-						let newRes = "navigator.webdriver && delete Navigator.prototype.webdriver;" + _res.body
-						// 返回删掉了webdriver的js
-						req.respond({
-							body: newRes
-						})
-						resolve()
-					}
+		// 		const url = req.url()
+		// 		await new Promise((resolve, reject) => {
+		// 		// 使用request/axios等请求库获取js文件
+		// 		request.get(url, (err, _res) => {
+		// 		   // 删掉navigator.webdriver
+		// 		   // 这里不排除有其它特征检测，每个网站需要定制化修改
+		// 			if (err){					
+		// 				resolve()
+		// 			}
+		// 			if (_res){
+		// 				//&& delete Navigator.prototype.webdriver
+		// 				let newRes = "navigator.webdriver && delete Navigator.prototype.webdriver;" + _res.body
+		// 				// 返回删掉了webdriver的js
+		// 				req.respond({
+		// 					body: newRes
+		// 				})
+		// 				resolve()
+		// 			}
 					
-				})
-			})		
-			//.catch(error => console.log("request error is ",error))
+		// 		})
+		// 	})		
+		// 	//.catch(error => console.log("request error is ",error))
 
-		})
+		// })
 	  
 	  try {
 		await page.goto("http://eportal.uestc.edu.cn", { waitUntil: "domcontentloaded" }); //页面跳转, 第二个参数为可选options, 这里表示等待页面结构加载完成, 无需等待img等资源
@@ -82,24 +92,25 @@ const Daka = async () => {
 		  type: 'png',
 		  fullPage: false //边滚动边截图
 		  // clip: {x: 0, y: 0, width: 1920, height: 800}
-	  }); */
+	  	}); */
 
 		let loginbtn = await page.$("#ampHasNoLogin");
 		
 		await Promise.all([
 			loginbtn.hover(2000),
 			loginbtn.focus(),		
+			//clickBtnAsAHuman(page,loginbtn)
 			loginbtn.click(),
 			page.waitForNavigation()  
 		]);		
-		
+		//await page.goto("https://idas.uestc.edu.cn/authserver/login?service=http%3A%2F%2Feportal.uestc.edu.cn%2Flogin%3Fservice%3Dhttp%3A%2F%2Feportal.uestc.edu.cn%2Fnew%2Findex.html",{waitUntil:"domcontentloaded"});
 		//await timeout(50);
 		const username = await page.$("#username");
 		await username.type('201822010814',{delay:100});
 		
 		const passwd =  await page.$("#password");
 		await passwd.type("qkf19951115",{delay:100})
-		
+		await page.waitForTimeout(30000)
 		let submitbtn = await page.$("#casLoginForm > p:nth-child(4) > button");
 		submitbtn.hover(100);
 		submitbtn.focus();
@@ -185,7 +196,7 @@ async  function clickBtnAsAHuman(page,selector){
 		await page.mouse.move(destx1,desty1,{steps:20});
 		await newbtn.focus();
 		await newbtn.click();	
-		await page.waitForTimeout(3000)
+		await page.waitForTimeout(2000)
 }
 async  function getCaptchaOffset(imgpath1,imgpath2) {
 	return new Promise((resolve, reject) => {
@@ -216,7 +227,7 @@ const main = async () => {
 		console.log("Another Try again")
 		ret = await Daka()
 	}
-	await sendMail(`Success Check in at ${new Date().toLocaleString()}`);
+	sendMail(`Success Check in at ${new Date().toLocaleString()}`);
 	process.exit()
 }
 module.exports = Daka
